@@ -1,5 +1,6 @@
 const puppeteer = require('puppeteer');
 async function scrapeImageInfo(id) {
+  console.log("SCRAPPING!!!!!!");
   const url = `https://mod.io/g/pavlov?id=${id}`;
   try {
     const browser = await puppeteer.launch({

@@ -1,5 +1,6 @@
 require('dotenv').config();
 var fs = require('fs');
+const cors = require('cors');
 var path = require('path');
 var express = require('express');
 var NetcatClient = require('node-netcat').client;
@@ -14,7 +15,8 @@ if (!fs.existsSync(dataFolder)) {
 if (!fs.existsSync(allDataFolder)) {
   fs.mkdirSync(allDataFolder);
 }
-let previousMapLabel = null; 
+
+app.use(cors());
 
 app.get('/', function(req, res) {
 
@@ -55,15 +57,13 @@ for (var i = 1; i <= numServers; i++) {
     password: process.env[`SERVER${i}_PASSWORD`],
     name: process.env[`SERVER${i}_NAME`]
   };
-
+  jsonAllData[`${server.name}_list`]={}
+  jsonAllData[`${server.name}_info`] = {};
   servers.push(server);
-
- 
   var serverFolder = path.join(dataFolder, server.name);
   if (!fs.existsSync(serverFolder)) {
     fs.mkdirSync(serverFolder);
   }
-
   createClient(server);
 }
 
@@ -71,6 +71,7 @@ function createClient(server) {
   var client = NetcatClient(server.port, 'localhost');
   let mapName="";
   let mapUrl="";
+  let previousMapLabel = null; 
 
   client.on('open', function () {
     console.log(server.name + ' connected');
@@ -79,18 +80,33 @@ function createClient(server) {
 
   client.on('data', async function (data) {
     var response = data.toString('ascii');
-    console.log(server.name + ' response:', response);
+   // console.log(server.name + ' response:', response);
+  // console.log("_________RESPONSE__________");
+  // console.log(response);
+ //  console.log("_________RESPONSE__________");
     if (response.includes('Authenticated')||response.includes('Password')||response.trim()==="")return;
+    let jsonData; 
     try {
      
-      let jsonData = JSON.parse(response);
+
+      jsonData= JSON.parse(response);
+
+    } catch (error) {
+      console.error('FILIP Error parsing JSON for ' + server.name + ':', error);
+      console.error('FILIP Error parsing JSON for ' + response);
+      return;
+    }
+     // console.log("_______JSON_DATA____________");
+
+     // console.log(jsonData);
+      //console.log("_______JSON_DATA____________");
 
       if (jsonData.hasOwnProperty('InspectList')) {
     
 jsonAllData[`${server.name}_list`] = jsonData;
           fs.writeFile(path.join(dataFolder, server.name, 'inspectlist.json'), JSON.stringify(jsonData), function (err) {
             if (err) throw err;
-            console.log('Combined InspectList saved to ' + server.name + '/inspectlist.json');
+           // console.log('Combined InspectList saved to ' + server.name + '/inspectlist.json');
           });
         
       }
@@ -116,16 +132,14 @@ jsonAllData[`${server.name}_list`] = jsonData;
 
         fs.writeFile(path.join(dataFolder, server.name, 'serverinfo.json'), JSON.stringify(jsonData.ServerInfo), function (err) {
           if (err) throw err;
-          console.log('ServerInfo saved to ' + server.name + '/serverinfo.json');
+        //  console.log('ServerInfo saved to ' + server.name + '/serverinfo.json');
         });
       }
       else {
-        console.log(+ ' response:', response);
+       // console.log(+ ' response:', response);
 
       }
-    } catch (error) {
-      console.error('Error parsing JSON for ' + server.name + ':', error);
-    }
+  
   });
 
   client.on('error', function (err) {
@@ -140,21 +154,28 @@ jsonAllData[`${server.name}_list`] = jsonData;
   client.start();
 
   // Send requests to each client every 6 seconds
-  setInterval(() => {
-    setTimeout(() => {
-      client.send('ServerInfo' + '\n');
-    }, 200);
+  let timeoutInMs =i*500
+  setTimeout(()=>{
 
-    setTimeout(() => {
-      client.send('InspectAll' + '\n');
-    }, 400);
-    setTimeout(() => {
-      fs.writeFile(path.join(dataFolder,'all-data', 'all-data.json'), JSON.stringify(jsonAllData), function (err) {
-        if (err) throw err;
-        console.log('ServerInfo saved to ' + server.name + '/serverinfo.json');
-      });
-    }, 2600);
-  }, 6000);
+    setInterval(() => {
+      setTimeout(() => {
+        client.send('ServerInfo' + '\n');
+      }, 200);
+  
+      setTimeout(() => {
+        client.send('InspectAll' + '\n');
+      }, 400);
+      setTimeout(() => {
+        fs.writeFile(path.join(dataFolder,'all-data', 'all-data.json'), JSON.stringify(jsonAllData), function (err) {
+          if (err) throw err;
+         // console.log('ServerInfo saved to ' + server.name + '/serverinfo.json');
+        });
+      }, 2600);
+    }, 10000);
+
+
+  },timeoutInMs)
+
 }
 
 function mapLabelChanged(newMapLabel, id) {
