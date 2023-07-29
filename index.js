@@ -94,6 +94,8 @@ function createClient(server) {
     } catch (error) {
       console.error('FILIP Error parsing JSON for ' + server.name + ':', error);
       console.error('FILIP Error parsing JSON for ' + response);
+      client.close();
+      createClient(server);
       return;
     }
      // console.log("_______JSON_DATA____________");
